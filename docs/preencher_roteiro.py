@@ -20,6 +20,7 @@ EVID = os.path.join(RAIZ, "evidencias")
 DATA_ENTREGA = "18/11/2026"
 NOME_ALUNO = "Higor Bachião Madeira de Castro"
 RA_ALUNO = "23327029"
+TURMA_ALUNO = "Ciência da Computação — 8º período"
 
 # ------------------------------------------------------------------ evidências
 _blocos_cache = {}
@@ -181,7 +182,7 @@ def preencher_celula(s, rotulo, conteudo_runs):
 
 s = preencher_celula(s, "Nome do aluno", run(NOME_ALUNO, tam=20))
 s = preencher_celula(s, "RA", run(RA_ALUNO, tam=20))
-s = preencher_celula(s, "Turma", run("PREENCHER", tam=20, highlight="yellow"))
+s = preencher_celula(s, "Turma", run(TURMA_ALUNO, tam=20))
 s = preencher_celula(s, "Data", run(DATA_ENTREGA, tam=20))
 
 # 2) Ambiente + evidência dos pré-requisitos
