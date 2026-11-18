@@ -1,0 +1,150 @@
+$ docker compose up -d --build 2>&1 | grep -E "Built|Started|Created"
+ lab13-registry-seguranca-app  Built
+ Network lab13-registry-seguranca_default  Created
+ Volume lab13-registry-seguranca_registry_data  Created
+ Container lab13-registry-seguranca-registry-1  Created
+ Container lab13-registry-seguranca-app-1  Created
+ Container lab13-registry-seguranca-app-1  Started
+ Container lab13-registry-seguranca-registry-1  Started
+
+$ docker compose ps --format "table {{.Service}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
+SERVICE    IMAGE                          STATUS                    PORTS
+app        lab13-registry-seguranca-app   Up 13 seconds (healthy)   0.0.0.0:6000->6000/tcp, [::]:6000->6000/tcp
+registry   registry:2                     Up 13 seconds             0.0.0.0:5000->5000/tcp, [::]:5000->5000/tcp
+
+$ curl -s http://localhost:6000; echo; curl -s http://localhost:6000/saude
+{"servico":"app-lab13","usuarioLinux":100,"nomeUsuario":"appuser","arquivoDoSegredo":"/run/secrets/db_password","segredoCarregadoViaSecretFile":"sim","segredoTamanho":41}
+{"status":"ok"}
+$ docker compose exec app whoami; docker compose exec app id
+appuser
+uid=100(appuser) gid=101(appgroup) groups=101(appgroup)
+
+$ docker compose exec app ls -l /run/secrets/
+total 4
+-rw-r--r--    1 appuser  appgroup        42 Nov 18 14:18 db_password
+
+$ docker inspect $(docker compose ps -q app) --format "Env: {{json .Config.Env}}"
+Env: ["DB_PASSWORD_FILE=/run/secrets/db_password","PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin","NODE_VERSION=20.20.2","YARN_VERSION=1.22.22","PORTA=6000"]
+
+$ docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}" $(docker compose ps -q)
+NAME                                  CPU %     MEM USAGE / LIMIT     MEM %
+lab13-registry-seguranca-app-1        0.00%     8.141MiB / 128MiB     6.36%
+lab13-registry-seguranca-registry-1   0.02%     5.355MiB / 7.653GiB   0.07%
+
+$ docker inspect $(docker compose ps -q app) --format "NanoCpus={{.HostConfig.NanoCpus}} Memory={{.HostConfig.Memory}}"
+NanoCpus=500000000 Memory=134217728
+
+$ docker build -q -t app-lab13:1.0 ./app
+sha256:7350eef401e9bed74939a0507d4baaa4fca839a90ec264990aeb0906430b1898
+
+$ docker tag app-lab13:1.0 localhost:5000/app-lab13:1.0
+
+$ docker push localhost:5000/app-lab13:1.0
+The push refers to repository [localhost:5000/app-lab13]
+13e45b12880f: Pushed
+cd322d0ddd02: Pushed
+b38448e40d23: Pushed
+5084279a006b: Pushed
+54a009f1077d: Pushed
+51cd114bcc60: Pushed
+d17f077ada11: Pushed
+bda5d7ef971f: Pushed
+1.0: digest: sha256:7350eef401e9bed74939a0507d4baaa4fca839a90ec264990aeb0906430b1898 size: 856
+
+$ docker rmi app-lab13:1.0 localhost:5000/app-lab13:1.0
+Untagged: app-lab13:1.0
+Untagged: localhost:5000/app-lab13:1.0
+Deleted: sha256:7350eef401e9bed74939a0507d4baaa4fca839a90ec264990aeb0906430b1898
+
+$ docker pull localhost:5000/app-lab13:1.0
+1.0: Pulling from app-lab13
+Digest: sha256:7350eef401e9bed74939a0507d4baaa4fca839a90ec264990aeb0906430b1898
+Status: Downloaded newer image for localhost:5000/app-lab13:1.0
+localhost:5000/app-lab13:1.0
+
+$ curl -s http://localhost:5000/v2/_catalog; echo; curl -s http://localhost:5000/v2/app-lab13/tags/list
+{"repositories":["app-lab13"]}
+
+{"name":"app-lab13","tags":["1.0"]}
+
+$ docker compose logs app
+app-1  | app-lab13 ouvindo na porta 6000 como appuser
+app-1  | segredo carregado de /run/secrets/db_password
+
+$ docker inspect --format "{{json .State.Health}}" $(docker compose ps -q app) | python3 -c "import json,sys; h=json.load(sys.stdin); print(\"Status:\",h[\"Status\"],\"| FailingStreak:\",h[\"FailingStreak\"],\"| ultimo teste:\",h[\"Log\"][-1][\"ExitCode\"], h[\"Log\"][-1][\"Output\"].strip())"
+Status: healthy | FailingStreak: 0 | ultimo teste: 0 {"status":"ok"}
+
+### pergunta 3: estourando o limite de 128M de proposito
+$ docker compose exec app node -e "const a=[]; setInterval(()=>{a.push(Buffer.alloc(20*1024*1024,1)); console.log((a.length*20)+\" MB alocados\")},100)"; echo "exit code do exec: $?"
+20 MB alocados
+40 MB alocados
+60 MB alocados
+80 MB alocados
+100 MB alocados
+120 MB alocados
+140 MB alocados
+160 MB alocados
+180 MB alocados
+200 MB alocados
+220 MB alocados
+exit code do exec: 137
+
+$ docker inspect $(docker compose ps -q app) --format "OOMKilled={{.State.OOMKilled}} Status={{.State.Status}}"; docker compose ps app --format "{{.Service}}: {{.Status}}"
+OOMKilled=true Status=running
+app: Up 30 seconds (healthy)
+
+### DESAFIO (a): caminho errado em DB_PASSWORD_FILE
+$ docker compose up -d app 2>&1 | tail -n 1; sleep 12; docker compose ps app --format "{{.Service}}: {{.Status}}"
+ Container lab13-registry-seguranca-app-1  Started
+app: Up 12 seconds (healthy)
+
+$ docker compose logs app | tail -n 2
+app-1  | app-lab13 ouvindo na porta 6000 como appuser
+app-1  | AVISO: segredo NAO encontrado em /run/secrets/db_pasword
+
+$ docker inspect $(docker compose ps -q app) --format "Env DB_PASSWORD_FILE: {{range .Config.Env}}{{if eq (slice . 0 3) \"DB_\"}}{{.}}{{end}}{{end}}{{println}}Mounts: {{range .Mounts}}{{.Destination}} {{end}}"
+Env DB_PASSWORD_FILE: DB_PASSWORD_FILE=/run/secrets/db_pasword
+Mounts: /run/secrets/db_password 
+
+$ docker compose up -d app 2>&1 | tail -n 1; sleep 3; docker compose logs app | tail -n 1
+ Container lab13-registry-seguranca-app-1  Started
+app-1  | segredo carregado de /run/secrets/db_password
+
+### DESAFIO (b): processo morto com sinal
+$ docker compose kill -s SIGKILL app; docker compose ps -a app --format "{{.Service}}: {{.Status}}"
+ Container lab13-registry-seguranca-app-1  Killing
+ Container lab13-registry-seguranca-app-1  Killed
+app: Exited (137) Less than a second ago
+
+$ docker inspect $(docker compose ps -aq app) --format "ExitCode={{.State.ExitCode}} OOMKilled={{.State.OOMKilled}} FinishedAt={{.State.FinishedAt}}"
+ExitCode=137 OOMKilled=false FinishedAt=2026-11-18T14:19:55.514601295Z
+
+$ docker compose events --since 2m   # (saida JSON resumida: hora, servico, acao)
+11:19:03  app      health_status: healthy
+11:19:24  app      oom
+11:19:37  app      create
+11:19:37  app      kill
+11:19:38  app      kill
+11:19:38  app      stop
+11:19:38  app      die
+11:19:38  app      destroy
+11:19:38  app      rename
+11:19:38  app      start
+11:19:48  app      health_status: healthy
+11:19:50  app      create
+11:19:50  app      kill
+11:19:52  app      kill
+11:19:52  app      stop
+11:19:52  app      die
+11:19:52  app      destroy
+11:19:52  app      rename
+11:19:52  app      start
+11:19:55  app      kill
+11:19:55  app      die
+
+$ docker compose down -v 2>&1 | grep -E "Volume|Network"
+ Network lab13-registry-seguranca_default  Removing
+ Volume lab13-registry-seguranca_registry_data  Removing
+ Volume lab13-registry-seguranca_registry_data  Removed
+ Network lab13-registry-seguranca_default  Removed
+

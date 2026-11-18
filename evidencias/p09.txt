@@ -1,0 +1,117 @@
+$ docker volume create pgdata-lab09
+pgdata-lab09
+
+$ docker run -d --name lab-postgres --env-file .env -v pgdata-lab09:/var/lib/postgresql/data -v "$(pwd)/init:/docker-entrypoint-initdb.d:ro" -p 5432:5432 postgres:16-alpine
+f5d904fba718a447719fcb39410faef9ea08d0d0a0a2429a40fcd2118d4a91c8
+
+$ docker logs lab-postgres 2>&1 | grep -E "running /docker-entrypoint|CREATE|INSERT|init process complete|ready to accept" 
+2026-11-18 14:10:06.438 UTC [41] LOG:  database system is ready to accept connections
+CREATE DATABASE
+/usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/01-schema.sql
+CREATE TABLE
+/usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/02-seed.sql
+INSERT 0 4
+PostgreSQL init process complete; ready for start up.
+2026-11-18 14:10:06.684 UTC [1] LOG:  database system is ready to accept connections
+
+$ docker exec lab-postgres psql -U unifeg -d lab_sistemas_distribuidos -c "SELECT * FROM alunos;"
+ id |      nome       |   ra    | periodo |         criado_em          
+----+-----------------+---------+---------+----------------------------
+  1 | Marina Tavares  | 2023101 |       8 | 2026-11-18 14:10:06.562735
+  2 | Otávio Rezende  | 2023102 |       8 | 2026-11-18 14:10:06.562735
+  3 | Letícia Campos  | 2023103 |       7 | 2026-11-18 14:10:06.562735
+  4 | Rafael Nogueira | 2023104 |       8 | 2026-11-18 14:10:06.562735
+(4 rows)
+
+
+$ docker exec lab-postgres pg_dump -U unifeg lab_sistemas_distribuidos > backup.sql && wc -l backup.sql
+     109 backup.sql
+
+$ docker exec lab-postgres psql -U unifeg -d lab_sistemas_distribuidos -c "DELETE FROM alunos WHERE ra = '2023104';" -c "SELECT count(*) FROM alunos;"
+DELETE 1
+ count 
+-------
+     3
+(1 row)
+
+
+$ docker exec lab-postgres psql -U unifeg -d lab_sistemas_distribuidos -c "DROP TABLE alunos;" && docker exec -i lab-postgres psql -q -U unifeg -d lab_sistemas_distribuidos < backup.sql && docker exec lab-postgres psql -U unifeg -d lab_sistemas_distribuidos -c "SELECT ra, nome FROM alunos ORDER BY ra;"
+DROP TABLE
+ set_config 
+------------
+ 
+(1 row)
+
+ setval 
+--------
+      4
+(1 row)
+
+   ra    |      nome       
+---------+-----------------
+ 2023101 | Marina Tavares
+ 2023102 | Otávio Rezende
+ 2023103 | Letícia Campos
+ 2023104 | Rafael Nogueira
+(4 rows)
+
+
+$ docker rm -f lab-postgres
+lab-postgres
+
+$ docker run -d --name lab-postgres --env-file .env -v pgdata-lab09:/var/lib/postgresql/data -v "$(pwd)/init:/docker-entrypoint-initdb.d:ro" -p 5432:5432 postgres:16-alpine
+4a4bb59a6f4dc94c0d8552f53f6a9239ab1dac9547a83df9c18448a7c04790ca
+
+$ docker exec lab-postgres psql -U unifeg -d lab_sistemas_distribuidos -c "SELECT count(*) FROM alunos;"
+ count 
+-------
+     4
+(1 row)
+
+
+$ docker logs lab-postgres 2>&1 | grep -E "Skipping initialization|ready to accept" | head -n 2
+PostgreSQL Database directory appears to contain a database; Skipping initialization
+2026-11-18 14:10:07.989 UTC [1] LOG:  database system is ready to accept connections
+
+### DESAFIO
+$ docker restart lab-postgres >/dev/null && sleep 3 && docker exec lab-postgres psql -U unifeg -d lab_sistemas_distribuidos -c "\di" | grep -c idx_alunos_ra || echo "indice ainda NAO existe (init nao roda com volume ja populado)"
+0
+indice ainda NAO existe (init nao roda com volume ja populado)
+
+$ docker rm -f lab-postgres && docker volume rm pgdata-lab09
+lab-postgres
+pgdata-lab09
+
+$ docker run -d --name lab-postgres --env-file .env -v pgdata-lab09:/var/lib/postgresql/data -v "$(pwd)/init:/docker-entrypoint-initdb.d:ro" -p 5432:5432 postgres:16-alpine
+f2981980da91ac8ac01cfc4ed294cbc65a300d2d026b72c907fc14fbcf8b06ab
+
+$ docker logs lab-postgres 2>&1 | grep -E "running /docker-entrypoint|CREATE INDEX"
+/usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/01-schema.sql
+/usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/02-seed.sql
+/usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/03-indice.sql
+CREATE INDEX
+
+$ docker exec lab-postgres psql -U unifeg -d lab_sistemas_distribuidos -c "\d alunos"
+                                        Table "public.alunos"
+  Column   |            Type             | Collation | Nullable |              Default               
+-----------+-----------------------------+-----------+----------+------------------------------------
+ id        | integer                     |           | not null | nextval('alunos_id_seq'::regclass)
+ nome      | character varying(120)      |           | not null | 
+ ra        | character varying(20)       |           | not null | 
+ periodo   | smallint                    |           | not null | 1
+ criado_em | timestamp without time zone |           | not null | now()
+Indexes:
+    "alunos_pkey" PRIMARY KEY, btree (id)
+    "alunos_ra_key" UNIQUE CONSTRAINT, btree (ra)
+    "idx_alunos_ra" btree (ra)
+
+
+$ docker exec lab-postgres psql -U unifeg -d lab_sistemas_distribuidos -c "SET enable_seqscan = off;" -c "EXPLAIN SELECT * FROM alunos WHERE ra = '2023102';"
+SET
+                                  QUERY PLAN                                  
+------------------------------------------------------------------------------
+ Index Scan using idx_alunos_ra on alunos  (cost=0.13..8.15 rows=1 width=330)
+   Index Cond: ((ra)::text = '2023102'::text)
+(2 rows)
+
+

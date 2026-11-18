@@ -1,0 +1,138 @@
+$ docker build --progress=plain -t app-fundamentos:1.0 . 2>&1 | grep -vE "^#[0-9]+ (sha256|extracting|resolve)"
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 379B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:20-alpine
+#2 DONE 1.8s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 72B done
+#3 DONE 0.0s
+
+#4 [internal] load build context
+#4 transferring context: 1.10kB done
+#4 DONE 0.0s
+
+#5 [1/5] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+#5 DONE 2.7s
+
+#5 [1/5] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+#5 DONE 3.2s
+
+#5 [1/5] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+#5 DONE 3.2s
+
+#6 [2/5] WORKDIR /app
+#6 DONE 0.2s
+
+#7 [3/5] COPY app/package.json ./
+#7 DONE 0.0s
+
+#8 [4/5] RUN npm install --omit=dev
+#8 0.339 
+#8 0.339 up to date, audited 1 package in 165ms
+#8 0.339 
+#8 0.339 found 0 vulnerabilities
+#8 DONE 0.3s
+
+#9 [5/5] COPY app/server.js ./
+#9 DONE 0.0s
+
+#10 exporting to image
+#10 exporting layers 0.0s done
+#10 exporting manifest sha256:4bc6e1d1a4ad72e737079c4d1515240176b8614e2a2f01eed2a14ac28ef55de2 done
+#10 exporting config sha256:22d09407bb4d98ac4bf49d59f2170327782b9fb8601c22dffad394c53ea2ffc0 done
+#10 exporting attestation manifest sha256:f9a87e040ec2b99dd07a115ac123587b8f4182d279a007371d8adbaa8f261059 done
+#10 exporting manifest list sha256:e3c5fbe6688227f9b2a2e90911ad05fb4a30e7c83f073b7134e3224b7f95c48f done
+#10 naming to docker.io/library/app-fundamentos:1.0 done
+#10 unpacking to docker.io/library/app-fundamentos:1.0 0.0s done
+#10 DONE 0.1s
+
+$ docker run --rm -d --name app03 -p 3000:3000 app-fundamentos:1.0 && sleep 1 && curl -s http://localhost:3000; docker stop app03 >/dev/null
+ae2b49baed707558fb5decabe7755c76bf35972e3b64b442f3f08c1eab478f6d
+{
+  "mensagem": "Ola, Unifeg! Primeira imagem propria do Higor (SD 2026B).",
+  "hostname": "ae2b49baed70",
+  "plataforma": "linux/arm64",
+  "versaoNode": "v20.20.2",
+  "noArDesde": "2026-11-18T14:04:58.065Z"
+}
+$ time docker build --progress=plain -t app-fundamentos:1.0 . 2>&1 | grep -E "CACHED|DONE|naming"
+#1 DONE 0.0s
+#2 DONE 0.2s
+#3 DONE 0.0s
+#4 DONE 0.0s
+#5 DONE 0.0s
+#6 CACHED
+#7 CACHED
+#8 CACHED
+#9 CACHED
+#10 naming to docker.io/library/app-fundamentos:1.0 done
+#10 DONE 0.0s
+
+real	0m0.562s
+user	0m0.100s
+sys	0m0.087s
+
+$ docker build --progress=plain -t app-fundamentos:1.0 . 2>&1 | grep -E "^#[0-9]+ \[|CACHED|DONE [0-9]"
+#1 [internal] load build definition from Dockerfile
+#1 DONE 0.0s
+#2 [internal] load metadata for docker.io/library/node:20-alpine
+#2 DONE 0.2s
+#3 [internal] load .dockerignore
+#3 DONE 0.0s
+#4 [internal] load build context
+#4 DONE 0.0s
+#5 [1/5] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+#5 DONE 0.0s
+#6 [3/5] COPY app/package.json ./
+#6 CACHED
+#7 [2/5] WORKDIR /app
+#7 CACHED
+#8 [4/5] RUN npm install --omit=dev
+#8 CACHED
+#9 [5/5] COPY app/server.js ./
+#9 DONE 0.0s
+#10 DONE 0.1s
+
+$ docker image history app-fundamentos:1.0
+IMAGE          CREATED                  CREATED BY                                      SIZE      COMMENT
+d9fd92967cfd   Less than a second ago   CMD ["node" "server.js"]                        0B        buildkit.dockerfile.v0
+<missing>      Less than a second ago   EXPOSE [3000/tcp]                               0B        buildkit.dockerfile.v0
+<missing>      Less than a second ago   ENV PORTA=3000                                  0B        buildkit.dockerfile.v0
+<missing>      Less than a second ago   COPY app/server.js ./ # buildkit                12.3kB    buildkit.dockerfile.v0
+<missing>      4 seconds ago            RUN /bin/sh -c npm install --omit=dev # buil…   28.7kB    buildkit.dockerfile.v0
+<missing>      4 seconds ago            COPY app/package.json ./ # buildkit             12.3kB    buildkit.dockerfile.v0
+<missing>      4 seconds ago            WORKDIR /app                                    8.19kB    buildkit.dockerfile.v0
+<missing>      7 months ago             CMD ["node"]                                    0B        buildkit.dockerfile.v0
+<missing>      7 months ago             ENTRYPOINT ["docker-entrypoint.sh"]             0B        buildkit.dockerfile.v0
+<missing>      7 months ago             COPY docker-entrypoint.sh /usr/local/bin/ # …   20.5kB    buildkit.dockerfile.v0
+<missing>      7 months ago             RUN /bin/sh -c apk add --no-cache --virtual …   5.48MB    buildkit.dockerfile.v0
+<missing>      7 months ago             ENV YARN_VERSION=1.22.22                        0B        buildkit.dockerfile.v0
+<missing>      7 months ago             RUN /bin/sh -c addgroup -g 1000 node     && …   130MB     buildkit.dockerfile.v0
+<missing>      7 months ago             ENV NODE_VERSION=20.20.2                        0B        buildkit.dockerfile.v0
+<missing>      7 months ago             CMD ["/bin/sh"]                                 0B        buildkit.dockerfile.v0
+<missing>      7 months ago             ADD alpine-minirootfs-3.23.4-aarch64.tar.gz …   9.35MB    buildkit.dockerfile.v0
+
+$ docker image ls app-fundamentos
+WARNING: This output is designed for human readability. For machine-readable output, please use --format.
+IMAGE                 ID             DISK USAGE   CONTENT SIZE   EXTRA
+app-fundamentos:1.0   d9fd92967cfd        194MB           49MB        
+
+### DESAFIO
+$ docker build -q -t app-fundamentos:1.1 .
+sha256:2067660aedede16bea1dd67d3a1af1dd6a9eeb7e560e783cab562725427b577a
+
+$ docker run -d --name app03-health -p 3000:3000 app-fundamentos:1.1 >/dev/null; docker ps --filter name=app03-health --format "{{.Names}}\t{{.Status}}"; sleep 12; docker ps --filter name=app03-health --format "{{.Names}}\t{{.Status}}"
+app03-health	Up Less than a second (health: starting)
+app03-health	Up 12 seconds (healthy)
+
+$ docker inspect --format "{{json .State.Health.Status}} {{(index .State.Health.Log 0).ExitCode}}" app03-health
+"healthy" 0
+
+$ docker rm -f app03-health
+app03-health
+

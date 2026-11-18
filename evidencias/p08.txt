@@ -1,0 +1,94 @@
+$ docker compose config --quiet && echo "compose.yaml valido"
+compose.yaml valido
+
+$ docker compose up -d --build 2>&1 | grep -vE "^#|^ *$"
+ lab08-compose-fundamentos-backend  Built
+ Network lab08-compose-fundamentos_rede-lab08  Creating
+ Network lab08-compose-fundamentos_rede-lab08  Created
+ Container lab08-compose-fundamentos-backend-1  Creating
+ Container lab08-compose-fundamentos-apache-1  Creating
+ Container lab08-compose-fundamentos-backend-1  Created
+ Container lab08-compose-fundamentos-nginx-1  Creating
+ Container lab08-compose-fundamentos-apache-1  Created
+ Container lab08-compose-fundamentos-nginx-1  Created
+ Container lab08-compose-fundamentos-backend-1  Starting
+ Container lab08-compose-fundamentos-apache-1  Starting
+ Container lab08-compose-fundamentos-apache-1  Started
+ Container lab08-compose-fundamentos-backend-1  Started
+ Container lab08-compose-fundamentos-nginx-1  Starting
+ Container lab08-compose-fundamentos-nginx-1  Started
+
+$ docker compose ps
+NAME                                  IMAGE                               COMMAND                  SERVICE   CREATED         STATUS         PORTS
+lab08-compose-fundamentos-apache-1    httpd:2.4                           "httpd-foreground"       apache    3 seconds ago   Up 3 seconds   0.0.0.0:8080->80/tcp, [::]:8080->80/tcp
+lab08-compose-fundamentos-backend-1   lab08-compose-fundamentos-backend   "docker-entrypoint.s…"   backend   3 seconds ago   Up 3 seconds   4000/tcp
+lab08-compose-fundamentos-nginx-1     nginx:alpine                        "/docker-entrypoint.…"   nginx     3 seconds ago   Up 3 seconds   0.0.0.0:8081->80/tcp, [::]:8081->80/tcp
+
+$ curl -s http://localhost:8080 | grep -o "<h1>.*</h1>"
+<h1>Apache 2.4 rodando num container (editado ao vivo)</h1>
+
+$ curl -s http://localhost:8081 | grep -o "<h1>.*</h1>"
+<h1>Nginx na porta da frente</h1>
+
+$ curl -s http://localhost:8081/api/status
+{"servico":"backend-lab07","status":"ok","hostname":"3dc947f2231b","caminhoRecebido":"/status","requisicoesAtendidas":1,"ipOriginalDoCliente":"192.168.65.1"}
+$ docker compose logs nginx | tail -n 4
+nginx-1  | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
+nginx-1  | /docker-entrypoint.sh: Configuration complete; ready for start up
+nginx-1  | 192.168.65.1 - [18/Nov/2026:14:08:48 +0000] "GET / HTTP/1.1" 200 918 tempo=0.000s
+nginx-1  | 192.168.65.1 - [18/Nov/2026:14:08:48 +0000] "GET /api/status HTTP/1.1" 200 168 tempo=0.004s
+
+$ docker compose exec nginx nginx -t
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+
+$ docker compose exec nginx sh -c "getent hosts backend apache"
+172.21.0.3        backend  backend
+172.21.0.2        apache  apache
+
+$ docker network ls --filter name=lab08
+NETWORK ID     NAME                                   DRIVER    SCOPE
+a6c1327f3719   lab08-compose-fundamentos_rede-lab08   bridge    local
+
+### DESAFIO
+$ docker compose config | grep -A1 "environment:"
+    environment:
+      NGINX_HOST: sd-higor.local
+
+$ NGINX_HOST=lab08.unifeg.test docker compose config | grep -A1 "environment:"
+    environment:
+      NGINX_HOST: lab08.unifeg.test
+
+$ docker compose up -d 2>&1 | grep -E "Healthy|Started|Recreated|Waiting"
+ Container lab08-compose-fundamentos-backend-1  Recreated
+ Container lab08-compose-fundamentos-nginx-1  Recreated
+ Container lab08-compose-fundamentos-backend-1  Started
+ Container lab08-compose-fundamentos-backend-1  Waiting
+ Container lab08-compose-fundamentos-backend-1  Healthy
+ Container lab08-compose-fundamentos-nginx-1  Started
+
+$ docker compose ps --format "table {{.Service}}\t{{.Status}}"
+SERVICE   STATUS
+apache    Up 24 seconds
+backend   Up 5 seconds (healthy)
+nginx     Up Less than a second
+
+$ docker compose exec nginx printenv NGINX_HOST
+sd-higor.local
+
+$ docker compose down
+ Container lab08-compose-fundamentos-apache-1  Stopping
+ Container lab08-compose-fundamentos-nginx-1  Stopping
+ Container lab08-compose-fundamentos-nginx-1  Stopped
+ Container lab08-compose-fundamentos-nginx-1  Removing
+ Container lab08-compose-fundamentos-nginx-1  Removed
+ Container lab08-compose-fundamentos-backend-1  Stopping
+ Container lab08-compose-fundamentos-apache-1  Stopped
+ Container lab08-compose-fundamentos-apache-1  Removing
+ Container lab08-compose-fundamentos-apache-1  Removed
+ Container lab08-compose-fundamentos-backend-1  Stopped
+ Container lab08-compose-fundamentos-backend-1  Removing
+ Container lab08-compose-fundamentos-backend-1  Removed
+ Network lab08-compose-fundamentos_rede-lab08  Removing
+ Network lab08-compose-fundamentos_rede-lab08  Removed
+

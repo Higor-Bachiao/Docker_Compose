@@ -1,0 +1,66 @@
+$ docker network create rede-lab07
+858d19a86164df684438fb1421fbf7e9aef9cf6c28b14497caa85dafddcd885f
+
+$ docker build -q -t backend-lab07:1.0 ./backend
+sha256:bb1f753f4cf05a9a5d292f2b44814405be8067154f2119b3e4e78a930f1178ac
+
+$ docker run -d --name backend --network rede-lab07 backend-lab07:1.0
+0b911f4dbe7a22ecfcb12af4e5e4104084a9e6881f1009f1c802479eef3e960b
+
+$ docker run -d --name lab-nginx --network rede-lab07 -p 8081:80 -v "$(pwd)/site:/usr/share/nginx/html:ro" -v "$(pwd)/conf/nginx.conf:/etc/nginx/nginx.conf:ro" nginx:alpine
+e3be9d2dfd36175203c37fc90f1736ba3889a18e9796356bbc9f092c586efd74
+
+$ curl -si http://localhost:8081 | head -n 9
+HTTP/1.1 200 OK
+Server: nginx/1.31.8
+Date: Wed, 18 Nov 2026 14:07:09 GMT
+Content-Type: text/html
+Content-Length: 918
+Last-Modified: Wed, 18 Nov 2026 14:06:57 GMT
+Connection: keep-alive
+ETag: "6afdb101-396"
+X-Servido-Por: Nginx-Unifeg-Lab07
+
+$ curl -s http://localhost:8081/api/status
+{"servico":"backend-lab07","status":"ok","hostname":"0b911f4dbe7a","caminhoRecebido":"/status","requisicoesAtendidas":1,"ipOriginalDoCliente":"192.168.65.1"}
+$ curl -s http://localhost:8081/api/qualquer/coisa
+{"servico":"backend-lab07","status":"ok","hostname":"0b911f4dbe7a","caminhoRecebido":"/qualquer/coisa","requisicoesAtendidas":2,"ipOriginalDoCliente":"192.168.65.1"}
+$ docker exec lab-nginx nginx -t
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+
+$ curl -sI http://localhost:8081 | grep -i x-servido
+X-Servido-Por: Nginx-Unifeg-Lab07
+
+$ docker logs backend; docker logs lab-nginx 2>&1 | grep tempo=
+Backend ouvindo na porta 4000
+[backend] #1 GET /status (X-Real-IP=192.168.65.1)
+[backend] #2 GET /qualquer/coisa (X-Real-IP=192.168.65.1)
+192.168.65.1 - [18/Nov/2026:14:07:09 +0000] "GET / HTTP/1.1" 200 918 tempo=0.000s
+192.168.65.1 - [18/Nov/2026:14:07:09 +0000] "GET /api/status HTTP/1.1" 200 168 tempo=0.009s
+192.168.65.1 - [18/Nov/2026:14:07:09 +0000] "GET /api/qualquer/coisa HTTP/1.1" 200 176 tempo=0.001s
+192.168.65.1 - [18/Nov/2026:14:07:09 +0000] "HEAD / HTTP/1.1" 200 0 tempo=0.000s
+
+### pergunta 2: backend fora do ar
+$ docker stop backend >/dev/null; curl -si http://localhost:8081/api/status | head -n 1; docker logs lab-nginx 2>&1 | grep -E "error|502" | tail -n 2
+HTTP/1.1 504 Gateway Time-out
+2026/11/18 14:08:11 [error] 34#34: *7 upstream timed out (110: Operation timed out) while connecting to upstream, client: 192.168.65.1, server: lab-nginx-unifeg, request: "GET /api/status HTTP/1.1", upstream: "http://172.21.0.2:4000/status", host: "localhost:8081"
+
+$ docker start backend >/dev/null; sleep 1; curl -s http://localhost:8081/api/status
+{"servico":"backend-lab07","status":"ok","hostname":"0b911f4dbe7a","caminhoRecebido":"/status","requisicoesAtendidas":1,"ipOriginalDoCliente":"192.168.65.1"}
+### DESAFIO
+$ docker exec lab-nginx nginx -t && docker exec lab-nginx nginx -s reload && sleep 1
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+2026/11/18 14:08:23 [notice] 53#53: signal process started
+
+$ for u in /api/status /saude/ /bruto/status; do printf "%-15s -> " $u; curl -s http://localhost:8081$u | grep -o "\"caminhoRecebido\":\"[^\"]*\""; done
+/api/status     -> "caminhoRecebido":"/status"
+/saude/         -> "caminhoRecebido":"/status"
+/bruto/status   -> "caminhoRecebido":"/bruto/status"
+
+### pergunta 2 (b): nome do backend inexistente na rede
+$ docker run --rm --network rede-lab07 -v "$(pwd)/conf/nginx.conf:/tmp/orig.conf:ro" nginx:alpine sh -c "sed s/backend:4000/backend-errado:4000/g /tmp/orig.conf > /etc/nginx/nginx.conf && nginx -t" 2>&1 | tail -n 2
+nginx: [emerg] host not found in upstream "backend-errado" in /etc/nginx/nginx.conf:31
+nginx: configuration file /etc/nginx/nginx.conf test failed
+

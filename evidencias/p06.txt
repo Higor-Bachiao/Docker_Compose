@@ -1,0 +1,94 @@
+$ docker run -d --name lab-apache -p 8080:80 -v "$(pwd)/site:/usr/local/apache2/htdocs" -v "$(pwd)/conf/httpd.conf:/usr/local/apache2/conf/httpd.conf:ro" httpd:2.4
+Unable to find image 'httpd:2.4' locally
+2.4: Pulling from library/httpd
+6ee0c846a68d: Pulling fs layer
+4f4fb700ef54: Pulling fs layer
+ef5e509be1c8: Pulling fs layer
+0a18bb19bea5: Pulling fs layer
+c816d85188f6: Pulling fs layer
+acd43e9bebc3: Pulling fs layer
+4f4fb700ef54: Already exists
+6ee0c846a68d: Download complete
+0a18bb19bea5: Download complete
+ef5e509be1c8: Download complete
+acd43e9bebc3: Download complete
+4f4fb700ef54: Pull complete
+0a18bb19bea5: Pull complete
+ef5e509be1c8: Pull complete
+acd43e9bebc3: Pull complete
+c816d85188f6: Download complete
+6ee0c846a68d: Pull complete
+c816d85188f6: Pull complete
+Digest: sha256:32e9403360ab2f1047523e72f256527fb9aee68b342abf6ad03f0d629157f3d9
+Status: Downloaded newer image for httpd:2.4
+8ad83b6153df32d61bbc49c6aa48d52c28cd391d176450080c188d81b50285b6
+
+$ curl -i http://localhost:8080
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   738  100   738    0     0   167k      0 --:--:-- --:--:-- --:--:--  180k
+HTTP/1.1 200 OK
+Date: Wed, 18 Nov 2026 14:06:25 GMT
+Server: Apache/2.4.71 (Unix)
+Last-Modified: Wed, 18 Nov 2026 14:06:16 GMT
+ETag: "2e2-6608d83ac4e05"
+Accept-Ranges: bytes
+Content-Length: 738
+X-Servido-Por: Apache-Unifeg-Lab06
+X-Aluno: Higor - SD 2026B
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lab 06 — Apache do Higor</title>
+  <link rel="stylesheet" href="estilo.css" />
+</head>
+<body>
+  <main>
+    <h1>Apache 2.4 rodando num container</h1>
+    <p>Este HTML mora em <code>labs/06-apache/site/</code> no meu Mac e chega ao
+       Apache por bind mount em <code>/usr/local/apache2/htdocs</code>.</p>
+    <ul>
+      <li>Imagem: <code>httpd:2.4</code> (oficial)</li>
+      <li>Configuração: <code>conf/httpd.conf</code> montado como somente-leitura</li>
+      <li>Prova de que o conf é meu: cabeçalhos <code>X-Servido-Por</code> e <code>X-Aluno</code></li>
+    </ul>
+    <p><a href="sobre.html">Sobre esta prática</a></p>
+  </main>
+</body>
+</html>
+
+$ docker exec lab-apache httpd -t
+Syntax OK
+
+$ docker logs lab-apache
+[Wed Nov 18 14:06:23.938438 2026] [mpm_event:notice] [pid 1:tid 1] AH00489: Apache/2.4.71 (Unix) configured -- resuming normal operations
+[Wed Nov 18 14:06:23.938543 2026] [core:notice] [pid 1:tid 1] AH00094: Command line: 'httpd -D FOREGROUND'
+192.168.65.1 - - [18/Nov/2026:14:06:25 +0000] "GET / HTTP/1.1" 200 738 tempo=1507-us
+
+$ curl -s http://localhost:8080 | grep "<h1>"
+    <h1>Apache 2.4 rodando num container (editado ao vivo)</h1>
+
+### DESAFIO
+$ curl -s -o /dev/null -w "sobre.html -> HTTP %{http_code}\n" http://localhost:8080/sobre.html
+sobre.html -> HTTP 200
+
+$ curl -s http://localhost:8080/materiais/ | grep -oE "<title>.*</title>|href=\"[a-z]+\.txt\""
+<title>Index of /materiais</title>
+href="notas.txt"
+href="slides.txt"
+
+$ docker exec lab-apache httpd -t && docker exec lab-apache httpd -k graceful && sleep 1
+Syntax OK
+
+$ curl -s -o /dev/null -w "materiais/ -> HTTP %{http_code}\n" http://localhost:8080/materiais/; curl -s -o /dev/null -w "materiais/notas.txt -> HTTP %{http_code}\n" http://localhost:8080/materiais/notas.txt; curl -s -o /dev/null -w "sobre.html -> HTTP %{http_code}\n" http://localhost:8080/sobre.html
+materiais/ -> HTTP 403
+materiais/notas.txt -> HTTP 200
+sobre.html -> HTTP 200
+
+$ docker logs lab-apache 2>&1 | tail -n 4
+[Wed Nov 18 14:06:40.748922 2026] [autoindex:error] [pid 111:tid 118] [client 192.168.65.1:42821] AH01276: Cannot serve directory /usr/local/apache2/htdocs/materiais/: No matching DirectoryIndex (index.html) found, and server-generated directory index forbidden by Options directive
+192.168.65.1 - - [18/Nov/2026:14:06:40 +0000] "GET /materiais/ HTTP/1.1" 403 239 tempo=933-us
+192.168.65.1 - - [18/Nov/2026:14:06:40 +0000] "GET /materiais/notas.txt HTTP/1.1" 200 24 tempo=1037-us
+192.168.65.1 - - [18/Nov/2026:14:06:40 +0000] "GET /sobre.html HTTP/1.1" 200 420 tempo=1186-us
+

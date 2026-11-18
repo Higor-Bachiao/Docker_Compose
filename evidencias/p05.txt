@@ -1,0 +1,110 @@
+$ docker network create rede-lab05
+3cfeab4e58a463937920f85b94ce28c02b055e851582ad79523fc491c107d3e0
+
+$ docker run -d --name servidor --network rede-lab05 nginx:alpine
+Unable to find image 'nginx:alpine' locally
+alpine: Pulling from library/nginx
+f4a8c3eaf855: Pulling fs layer
+5faf28e117a4: Pulling fs layer
+1b5b466c140b: Pulling fs layer
+66eb34db8c04: Pulling fs layer
+a6fb6399df14: Pulling fs layer
+b25486411ab9: Pulling fs layer
+89c6596257b9: Pulling fs layer
+1b5b466c140b: Download complete
+89c6596257b9: Download complete
+5faf28e117a4: Download complete
+b25486411ab9: Download complete
+a6fb6399df14: Download complete
+f4a8c3eaf855: Download complete
+66eb34db8c04: Download complete
+1b5b466c140b: Pull complete
+89c6596257b9: Pull complete
+5faf28e117a4: Pull complete
+b25486411ab9: Pull complete
+a6fb6399df14: Pull complete
+66eb34db8c04: Pull complete
+f4a8c3eaf855: Pull complete
+Digest: sha256:fed7e14be83cbd2661a75cdc5b872d936cf155d46c327084d30b8df19ae88d72
+Status: Downloaded newer image for nginx:alpine
+c39b22b3facea5ff17815f70a39fbca1fd39e4eafa1a75d88e07cc9e1748f1a4
+
+$ docker run --rm --network rede-lab05 busybox wget -qO- http://servidor
+Unable to find image 'busybox:latest' locally
+latest: Pulling from library/busybox
+55d2dadd4bbc: Pulling fs layer
+55d2dadd4bbc: Download complete
+55d2dadd4bbc: Pull complete
+Digest: sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4
+Status: Downloaded newer image for busybox:latest
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, nginx is successfully installed and working.
+Further configuration is required for the web server, reverse proxy, 
+API gateway, load balancer, content cache, or other features.</p>
+
+<p>For online documentation and support please refer to
+<a href="https://nginx.org/">nginx.org</a>.<br/>
+To engage with the community please visit
+<a href="https://community.nginx.org/">community.nginx.org</a>.<br/>
+For enterprise grade support, professional services, additional 
+security features and capabilities please refer to
+<a href="https://f5.com/nginx">f5.com/nginx</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+
+$ docker run -d --name servidor-exposto --network rede-lab05 -p 8080:80 nginx:alpine && sleep 1 && curl -s -o /dev/null -w "HTTP %{http_code} vindo de %{url_effective}\n" http://localhost:8080
+af08d63784f85c02c9c7e68d2343cbec9d948ed562babb269186df3e6ca4f2a4
+HTTP 200 vindo de http://localhost:8080/
+
+$ docker network inspect rede-lab05 --format "{{range .Containers}}{{.Name}} -> {{.IPv4Address}}{{println}}{{end}}Subnet: {{(index .IPAM.Config 0).Subnet}}"
+servidor-exposto -> 172.21.0.3/16
+servidor -> 172.21.0.2/16
+Subnet: 172.21.0.0/16
+
+$ docker port servidor-exposto
+80/tcp -> 0.0.0.0:8080
+80/tcp -> [::]:8080
+
+$ docker run --rm --network rede-lab05 busybox nslookup servidor 2>&1 | grep -A2 "Name"
+Name:	servidor
+Address: 172.21.0.2
+
+
+$ docker run -d --name servidor-default nginx:alpine
+5be70ac834ca3e217b78f179ec3d99a4f0b7825f52b9782a7aa3a826b121d38a
+
+$ docker run --rm busybox wget -qO- -T 5 http://servidor-default
+wget: bad address 'servidor-default'
+
+$ IP=$(docker inspect -f "{{.NetworkSettings.Networks.bridge.IPAddress}}" servidor-default); echo "IP na bridge padrao: $IP"; docker run --rm busybox wget -qO- -T 5 http://$IP | grep -o "<title>.*</title>"
+IP na bridge padrao: 172.17.0.2
+<title>Welcome to nginx!</title>
+
+### DESAFIO
+$ docker network create rede-lab05-b && docker network connect rede-lab05-b servidor
+49bce6f4a5a48cbbdb9d13e84c4d06acc72e1dc536a508792e5d13bbc37f3c4e
+
+$ docker inspect servidor --format "{{range \$rede, \$cfg := .NetworkSettings.Networks}}{{\$rede}} = {{\$cfg.IPAddress}}{{println}}{{end}}"
+rede-lab05 = 172.21.0.2
+rede-lab05-b = 172.22.0.2
+
+
+$ docker network inspect rede-lab05-b --format "{{.Name}}: {{range .Containers}}{{.Name}} {{end}}"
+rede-lab05-b: servidor 
+
+$ docker run --rm --network rede-lab05-b busybox wget -qO- http://servidor | grep -o "<title>.*</title>"
+<title>Welcome to nginx!</title>
+

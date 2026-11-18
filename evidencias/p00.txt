@@ -1,0 +1,14 @@
+$ docker version --format "Client: {{.Client.Version}} ({{.Client.Os}}/{{.Client.Arch}})  |  Server: {{.Server.Version}} ({{.Server.Os}}/{{.Server.Arch}})"
+Client: 29.0.1 (darwin/arm64)  |  Server: 29.0.1 (linux/arm64)
+
+$ docker info --format "OS: {{.OperatingSystem}} | Kernel: {{.KernelVersion}} | CPUs: {{.NCPU}} | Driver: {{.Driver}}"
+OS: Docker Desktop | Kernel: 6.12.54-linuxkit | CPUs: 10 | Driver: overlayfs
+
+$ docker compose version
+Docker Compose version v2.40.3-desktop.1
+
+$ docker run --rm hello-world | head -n 3
+
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+

@@ -1,0 +1,105 @@
+$ docker compose config --quiet && echo "compose.yaml valido"
+compose.yaml valido
+
+$ docker compose up -d 2>&1
+ Network lab10-pgadmin-compose_rede-lab10  Creating
+ Network lab10-pgadmin-compose_rede-lab10  Created
+ Volume lab10-pgadmin-compose_pgadmin_data  Creating
+ Volume lab10-pgadmin-compose_pgadmin_data  Created
+ Volume lab10-pgadmin-compose_pgdata  Creating
+ Volume lab10-pgadmin-compose_pgdata  Created
+ Container lab10-pgadmin-compose-db-1  Creating
+ Container lab10-pgadmin-compose-db-1  Created
+ Container lab10-pgadmin-compose-pgadmin-1  Creating
+ Container lab10-pgadmin-compose-pgadmin-1  Created
+ Container lab10-pgadmin-compose-db-1  Starting
+ Container lab10-pgadmin-compose-db-1  Started
+ Container lab10-pgadmin-compose-db-1  Waiting
+ Container lab10-pgadmin-compose-db-1  Healthy
+ Container lab10-pgadmin-compose-pgadmin-1  Starting
+ Container lab10-pgadmin-compose-pgadmin-1  Started
+
+$ docker compose ps --format "table {{.Service}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
+SERVICE   IMAGE                STATUS                   PORTS
+db        postgres:16-alpine   Up 5 seconds (healthy)   5432/tcp
+pgadmin   dpage/pgadmin4:8     Up Less than a second    0.0.0.0:8082->80/tcp, [::]:8082->80/tcp
+
+$ docker compose ps --format "table {{.Service}}\t{{.Status}}"
+SERVICE   STATUS
+db        Up 16 seconds (healthy)
+pgadmin   Up 11 seconds
+
+$ docker compose logs pgadmin 2>&1 | grep -E "Listening at|Booting worker|Added|server" | head -n 5
+pgadmin-1  | Loading servers with:
+pgadmin-1  | Added 1 Server Group(s) and 1 Server(s).
+pgadmin-1  | [2026-11-18 14:11:18 +0000] [1] [INFO] Listening at: http://[::]:80 (1)
+pgadmin-1  | [2026-11-18 14:11:18 +0000] [126] [INFO] Booting worker with pid: 126
+
+$ curl -s -o /dev/null -w "GET /login -> HTTP %{http_code}\n" -L http://localhost:8082/login
+GET /login -> HTTP 200
+
+$ docker compose logs db | grep "ready to accept"
+db-1  | 2026-11-18 14:11:03.464 UTC [41] LOG:  database system is ready to accept connections
+db-1  | 2026-11-18 14:11:03.741 UTC [1] LOG:  database system is ready to accept connections
+
+$ docker compose exec -T -e PGPASSWORD=$POSTGRES_PASSWORD pgadmin /usr/local/pgsql-16/psql -h db -U unifeg -d lab_sistemas_distribuidos -c "SELECT ra, nome, periodo FROM alunos ORDER BY nome;"
+   ra    |      nome       | periodo 
+---------+-----------------+---------
+ 2023103 | Letícia Campos  |       7
+ 2023101 | Marina Tavares  |       8
+ 2023102 | Otávio Rezende  |       8
+ 2023104 | Rafael Nogueira |       8
+(4 rows)
+
+
+$ docker compose exec -T pgadmin cat /pgadmin4/servers.json | grep -E "\"Name\"|\"Host\"|\"Username\""
+      "Name": "Lab 10 - Postgres via Compose (SD 2026B)",
+      "Host": "db",
+      "Username": "unifeg",
+
+
+### DESAFIO
+$ docker compose config --quiet && echo "compose.yaml valido"
+compose.yaml valido
+
+$ docker compose up -d 2>&1 | grep -E "Waiting|Healthy|Started|Created"
+ Container lab10-pgadmin-compose-monitor-1  Created
+ Container lab10-pgadmin-compose-db-1  Waiting
+ Container lab10-pgadmin-compose-db-1  Healthy
+ Container lab10-pgadmin-compose-pgadmin-1  Started
+ Container lab10-pgadmin-compose-pgadmin-1  Waiting
+ Container lab10-pgadmin-compose-pgadmin-1  Healthy
+ Container lab10-pgadmin-compose-monitor-1  Started
+
+$ docker compose ps --format "table {{.Service}}\t{{.Status}}"
+SERVICE   STATUS
+db        Up 2 minutes (healthy)
+monitor   Up 3 seconds
+pgadmin   Up 8 seconds (healthy)
+
+$ docker compose logs monitor
+monitor-1  | 14:13:45 pgadmin respondeu: PING
+
+### passo 4 + pergunta 3
+$ docker compose down 2>&1 | tail -n 2; docker volume ls --filter name=lab10
+ Network lab10-pgadmin-compose_rede-lab10  Removing
+ Network lab10-pgadmin-compose_rede-lab10  Removed
+DRIVER    VOLUME NAME
+local     lab10-pgadmin-compose_pgadmin_data
+local     lab10-pgadmin-compose_pgdata
+
+$ docker compose up -d db 2>&1 | tail -n 1; sleep 6; docker compose exec -T db psql -U unifeg -d lab_sistemas_distribuidos -c "SELECT count(*) AS alunos_apos_down_e_up FROM alunos;"
+ Container lab10-pgadmin-compose-db-1  Started
+ alunos_apos_down_e_up 
+-----------------------
+                     4
+(1 row)
+
+
+$ docker compose down -v 2>&1 | grep Volume; docker volume ls --filter name=lab10
+ Volume lab10-pgadmin-compose_pgdata  Removing
+ Volume lab10-pgadmin-compose_pgadmin_data  Removing
+ Volume lab10-pgadmin-compose_pgdata  Removed
+ Volume lab10-pgadmin-compose_pgadmin_data  Removed
+DRIVER    VOLUME NAME
+

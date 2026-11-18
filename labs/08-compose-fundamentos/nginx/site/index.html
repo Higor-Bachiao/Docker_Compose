@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lab 07 — Nginx + proxy reverso (Higor)</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #0d1b2a; color: #e0e6ed; display: flex; justify-content: center; padding: 3rem 1rem; }
+    main { max-width: 640px; background: #1b2a3d; border-top: 6px solid #e67e22; border-radius: 4px; padding: 2rem; }
+    h1 { color: #f39c12; }
+    a { color: #7fd3ff; }
+    code { background: #0d1b2a; padding: 0 4px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Nginx na porta da frente</h1>
+    <p>Esta página é estática e sai direto do Nginx. Tudo que começa com
+       <code>/api/</code> é repassado para o container <code>backend</code>
+       (Node, porta 4000), que nunca fica exposto para fora do Docker.</p>
+    <p>Teste: <a href="/api/status">/api/status</a> · <a href="/saude/">/saude/</a></p>
+  </main>
+</body>
+</html>

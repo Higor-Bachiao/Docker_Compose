@@ -1,0 +1,77 @@
+$ for i in 1 2 3; do docker run --rm -v "$(pwd)/scripts:/scripts:ro" -v "$(pwd)/dados:/dados" alpine sh /scripts/contador.sh; echo ----; done
+Contador atual: 1
+--- historico (log.txt) ---
+2026-11-18 14:05:34 - execucao numero 1 (container 9137458f8c06)
+----
+Contador atual: 2
+--- historico (log.txt) ---
+2026-11-18 14:05:34 - execucao numero 1 (container 9137458f8c06)
+2026-11-18 14:05:34 - execucao numero 2 (container c6c02593b643)
+----
+Contador atual: 3
+--- historico (log.txt) ---
+2026-11-18 14:05:34 - execucao numero 1 (container 9137458f8c06)
+2026-11-18 14:05:34 - execucao numero 2 (container c6c02593b643)
+2026-11-18 14:05:34 - execucao numero 3 (container fcfb92ff0dff)
+----
+
+$ ls -l dados/ && cat dados/contador.txt
+total 16
+-rw-r--r--  1 higorbachiao  staff    2 Nov 18 11:05 contador.txt
+-rw-r--r--  1 higorbachiao  staff  195 Nov 18 11:05 log.txt
+3
+
+$ docker volume create dados-contador
+dados-contador
+
+$ docker run --rm -v "$(pwd)/scripts:/scripts:ro" -v dados-contador:/dados alpine sh /scripts/contador.sh
+Contador atual: 1
+--- historico (log.txt) ---
+2026-11-18 14:05:35 - execucao numero 1 (container a430947ac67f)
+
+$ docker run --rm -v "$(pwd)/scripts:/scripts:ro" -v dados-contador:/dados alpine sh /scripts/contador.sh
+Contador atual: 2
+--- historico (log.txt) ---
+2026-11-18 14:05:35 - execucao numero 1 (container a430947ac67f)
+2026-11-18 14:05:35 - execucao numero 2 (container 624f24441853)
+
+$ docker volume inspect dados-contador
+[
+    {
+        "CreatedAt": "2026-11-18T14:05:35Z",
+        "Driver": "local",
+        "Labels": null,
+        "Mountpoint": "/var/lib/docker/volumes/dados-contador/_data",
+        "Name": "dados-contador",
+        "Options": null,
+        "Scope": "local"
+    }
+]
+
+$ docker run --rm -v "$(pwd)/scripts:/scripts:ro" --tmpfs /dados alpine sh /scripts/contador.sh; echo ----; docker run --rm -v "$(pwd)/scripts:/scripts:ro" --tmpfs /dados alpine sh /scripts/contador.sh
+Contador atual: 1
+--- historico (log.txt) ---
+2026-11-18 14:05:35 - execucao numero 1 (container 778761f13c0b)
+----
+Contador atual: 1
+--- historico (log.txt) ---
+2026-11-18 14:05:35 - execucao numero 1 (container b6e6019cfac7)
+
+### DESAFIO
+$ docker volume ls --filter name=dados-contador
+DRIVER    VOLUME NAME
+local     dados-contador
+
+$ docker volume rm dados-contador
+dados-contador
+
+$ docker run --rm -v "$(pwd)/scripts:/scripts:ro" -v dados-contador:/dados alpine sh /scripts/contador.sh
+Contador atual: 1
+--- historico (log.txt) ---
+2026-11-18 14:05:36 - execucao numero 1 (container 95e40f339dc8)
+
+$ docker volume ls --filter name=dados-contador && docker volume rm dados-contador
+DRIVER    VOLUME NAME
+local     dados-contador
+dados-contador
+

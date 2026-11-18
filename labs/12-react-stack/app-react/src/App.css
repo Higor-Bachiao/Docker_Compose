@@ -1,0 +1,23 @@
+body { margin: 0; background: #10131a; }
+.container {
+  font-family: system-ui, sans-serif;
+  max-width: 680px;
+  margin: 3rem auto;
+  padding: 2rem;
+  border-left: 6px solid #61dafb;
+  background: #1b2030;
+  color: #e6e6e6;
+  border-radius: 6px;
+}
+code { color: #61dafb; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+button {
+  background: #2a3145;
+  color: #e6e6e6;
+  border: 1px solid #61dafb55;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+button.ok { background: #61dafb; color: #10131a; font-weight: bold; }
+.placar { opacity: 0.75; }

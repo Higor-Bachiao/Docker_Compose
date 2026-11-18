@@ -1,0 +1,124 @@
+$ docker compose up -d --build 2>&1 | grep -E "Built|Created|Started"
+ lab12-react-stack-react-dev  Built
+ Network lab12-react-stack_default  Created
+ Volume lab12-react-stack_node_modules_dev  Created
+ Container lab12-react-stack-react-dev-1  Created
+ Container lab12-react-stack-react-dev-1  Started
+
+$ docker compose logs react-dev
+react-dev-1  | 
+react-dev-1  | > app-react-lab12@1.0.0 dev
+react-dev-1  | > vite --host 0.0.0.0
+react-dev-1  | 
+react-dev-1  | 
+react-dev-1  |   VITE v5.4.21  ready in 97 ms
+react-dev-1  | 
+react-dev-1  |   ➜  Local:   http://localhost:5173/
+react-dev-1  |   ➜  Network: http://172.21.0.2:5173/
+
+$ sed -i "" "s/SD 2026B — React rodando em container/SD 2026B — hot reload funcionando!/" app-react/src/App.jsx && grep -n "<h1>" app-react/src/App.jsx
+15:      <h1>SD 2026B — hot reload funcionando!</h1>
+
+$ docker compose logs react-dev | grep -iE "hmr|reload|update"
+react-dev-1  | 2:16:15 PM [vite] hmr update /src/App.jsx
+
+$ docker compose exec react-dev sh -c "ls /app/node_modules | wc -l"
+36
+
+$ docker compose exec react-dev sh -c "du -sh /app/node_modules"; ls app-react/ ; ls app-react/node_modules 2>&1 | head -n 1
+42.7M	/app/node_modules
+index.html
+node_modules
+package.json
+src
+vite.config.js
+
+$ docker volume ls --filter name=lab12
+DRIVER    VOLUME NAME
+local     lab12-react-stack_node_modules_dev
+
+$ echo "itens em app-react/node_modules no HOST: $(ls -A app-react/node_modules | wc -l)"
+itens em app-react/node_modules no HOST:        0
+
+### pergunta 1: mesmo container SEM o volume de node_modules
+$ docker run --rm -v "$(pwd)/app-react:/app" lab12-react-stack-react-dev npm run dev 2>&1 | tail -n 4
+> app-react-lab12@1.0.0 dev
+> vite --host 0.0.0.0
+
+sh: vite: not found
+
+$ docker compose down
+ Container lab12-react-stack-react-dev-1  Stopping
+ Container lab12-react-stack-react-dev-1  Stopped
+ Container lab12-react-stack-react-dev-1  Removing
+ Container lab12-react-stack-react-dev-1  Removed
+ Network lab12-react-stack_default  Removing
+ Network lab12-react-stack_default  Removed
+
+### TROUBLESHOOTING: 1a tentativa do build de producao falhou
+$ docker build -q -t app-react-lab12:prod .
+Dockerfile:8
+--------------------
+   6 |     RUN npm install
+   7 |     COPY app-react/ ./
+   8 | >>> RUN npm run build
+   9 |     
+  10 |     FROM nginx:alpine
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c npm run build" did not complete successfully: exit code: 1
+
+$ docker run --rm app-react-lab12:dev-em-prod node -p 'require("rollup/package.json").version'
+4.68.6
+# rollup 4.68.6 foi publicado em 2026-11-18T08:21Z (npm view rollup time).
+# Teste: mesmo codigo com rollup@4.68.5 e @4.68.0 -> "built in ~350ms".
+# Correcao aplicada: "overrides": {"rollup": "4.68.5"} no app-react/package.json
+
+$ docker build --progress=plain -t app-react-lab12:prod . 2>&1 | grep -E "rollup|vite v|built in|dist/|naming"
+#12 0.279 vite v5.4.21 building for production...
+#12 0.620 dist/index.html                   0.34 kB │ gzip:  0.25 kB
+#12 0.620 dist/assets/index-EaVvi6h2.css    0.49 kB │ gzip:  0.30 kB
+#12 0.620 dist/assets/index-Bauh97jY.js   143.32 kB │ gzip: 46.18 kB
+#12 0.620 ✓ built in 329ms
+#15 naming to docker.io/library/app-react-lab12:prod done
+
+$ docker run --rm -d --name react-prod -p 8090:80 app-react-lab12:prod && sleep 1 && curl -I http://localhost:8090 2>/dev/null
+273501aa9984747c8ad988c32f0f5e365d0fd3bdfd48195ddf0cd67b619cdcb6
+HTTP/1.1 200 OK
+Server: nginx/1.31.8
+Date: Wed, 18 Nov 2026 14:18:27 GMT
+Content-Type: text/html
+Content-Length: 342
+Last-Modified: Wed, 18 Nov 2026 14:18:25 GMT
+Connection: keep-alive
+ETag: "6afdb3b1-156"
+Accept-Ranges: bytes
+
+
+$ curl -s http://localhost:8090/rota/que/nao/existe | grep -o "<title>.*</title>"; docker exec react-prod ls -R /usr/share/nginx/html
+<title>SD 2026B — React em container</title>
+/usr/share/nginx/html:
+50x.html
+assets
+index.html
+
+/usr/share/nginx/html/assets:
+index-Bauh97jY.js
+index-EaVvi6h2.css
+
+$ docker stop react-prod
+react-prod
+
+### DESAFIO
+$ docker build -q -f Dockerfile.dev-em-producao -t app-react-lab12:dev-em-prod .
+sha256:1783279c663888cd98402ce143af826f50fca1b7834e99e270bc839dcc95ffda
+
+$ docker image ls app-react-lab12
+WARNING: This output is designed for human readability. For machine-readable output, please use --format.
+IMAGE                         ID             DISK USAGE   CONTENT SIZE   EXTRA
+app-react-lab12:dev-em-prod   1783279c6638        416MB         89.4MB        
+app-react-lab12:prod          832860dff8a7       93.4MB         26.3MB        
+
+$ docker image inspect -f "{{.RepoTags}} -> {{.Size}} bytes" app-react-lab12:prod app-react-lab12:dev-em-prod
+[app-react-lab12:prod] -> 26332815 bytes
+[app-react-lab12:dev-em-prod] -> 89429153 bytes
+

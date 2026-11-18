@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lab 06 — Apache do Higor</title>
+  <link rel="stylesheet" href="estilo.css" />
+</head>
+<body>
+  <main>
+    <h1>Apache 2.4 rodando num container</h1>
+    <p>Este HTML mora em <code>labs/06-apache/site/</code> no meu Mac e chega ao
+       Apache por bind mount em <code>/usr/local/apache2/htdocs</code>.</p>
+    <ul>
+      <li>Imagem: <code>httpd:2.4</code> (oficial)</li>
+      <li>Configuração: <code>conf/httpd.conf</code> montado como somente-leitura</li>
+      <li>Prova de que o conf é meu: cabeçalhos <code>X-Servido-Por</code> e <code>X-Aluno</code></li>
+    </ul>
+    <p><a href="sobre.html">Sobre esta prática</a></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,98 @@
+$ docker build -q -f Dockerfile.single-stage -t app-multistage:single .
+sha256:58df5103a0c592957fa689f9849990ac87a64d22610fed1c6e24c8437efb0258
+
+$ docker build -q -f Dockerfile -t app-multistage:multi .
+sha256:cb9580abd419c01155306f31c00ab86d2b224f9b6e0d951840c1209a5f6372ff
+
+$ docker image ls app-multistage
+WARNING: This output is designed for human readability. For machine-readable output, please use --format.
+IMAGE                   ID             DISK USAGE   CONTENT SIZE   EXTRA
+app-multistage:multi    cb9580abd419        225MB         52.5MB        
+app-multistage:single   58df5103a0c5       1.64GB          403MB        
+
+$ docker image inspect -f "{{.RepoTags}} -> {{.Size}} bytes" app-multistage:single app-multistage:multi
+[app-multistage:single] -> 402555925 bytes
+[app-multistage:multi] -> 52525057 bytes
+
+$ docker image history app-multistage:single
+IMAGE          CREATED          CREATED BY                                      SIZE      COMMENT
+58df5103a0c5   5 seconds ago    CMD ["npm" "start"]                             0B        buildkit.dockerfile.v0
+<missing>      5 seconds ago    EXPOSE [5000/tcp]                               0B        buildkit.dockerfile.v0
+<missing>      5 seconds ago    ENV IMAGEM_BASE=node:20                         0B        buildkit.dockerfile.v0
+<missing>      5 seconds ago    RUN /bin/sh -c npm run build # buildkit         32.8kB    buildkit.dockerfile.v0
+<missing>      6 seconds ago    COPY src ./src # buildkit                       16.4kB    buildkit.dockerfile.v0
+<missing>      6 seconds ago    COPY tsconfig.json ./ # buildkit                12.3kB    buildkit.dockerfile.v0
+<missing>      6 seconds ago    RUN /bin/sh -c npm install # buildkit           59.1MB    buildkit.dockerfile.v0
+<missing>      11 seconds ago   COPY package.json ./ # buildkit                 12.3kB    buildkit.dockerfile.v0
+<missing>      11 seconds ago   WORKDIR /app                                    8.19kB    buildkit.dockerfile.v0
+<missing>      7 months ago     CMD ["node"]                                    0B        buildkit.dockerfile.v0
+<missing>      7 months ago     ENTRYPOINT ["docker-entrypoint.sh"]             0B        buildkit.dockerfile.v0
+<missing>      7 months ago     COPY docker-entrypoint.sh /usr/local/bin/ # …   20.5kB    buildkit.dockerfile.v0
+<missing>      7 months ago     RUN /bin/sh -c set -ex   && export GNUPGHOME…   5.41MB    buildkit.dockerfile.v0
+<missing>      7 months ago     ENV YARN_VERSION=1.22.22                        0B        buildkit.dockerfile.v0
+<missing>      7 months ago     RUN /bin/sh -c ARCH= && dpkgArch="$(dpkg --p…   175MB     buildkit.dockerfile.v0
+<missing>      7 months ago     ENV NODE_VERSION=20.20.2                        0B        buildkit.dockerfile.v0
+<missing>      7 months ago     RUN /bin/sh -c groupadd --gid 1000 node   &&…   69.6kB    buildkit.dockerfile.v0
+<missing>      7 months ago     RUN /bin/sh -c set -ex;  apt-get update;  ap…   592MB     buildkit.dockerfile.v0
+<missing>      7 months ago     RUN /bin/sh -c set -eux;  apt-get update;  a…   200MB     buildkit.dockerfile.v0
+<missing>      7 months ago     RUN /bin/sh -c set -eux;  apt-get update;  a…   52.3MB    buildkit.dockerfile.v0
+<missing>      7 months ago     # debian.sh --arch 'arm64' out/ 'bookworm' '…   155MB     debuerreotype 0.17
+
+$ docker image history app-multistage:multi
+IMAGE          CREATED                  CREATED BY                                      SIZE      COMMENT
+cb9580abd419   Less than a second ago   CMD ["node" "dist/index.js"]                    0B        buildkit.dockerfile.v0
+<missing>      Less than a second ago   EXPOSE [5000/tcp]                               0B        buildkit.dockerfile.v0
+<missing>      Less than a second ago   ENV IMAGEM_BASE=node:20-alpine                  0B        buildkit.dockerfile.v0
+<missing>      Less than a second ago   COPY /app/dist ./dist # buildkit                16.4kB    buildkit.dockerfile.v0
+<missing>      Less than a second ago   RUN /bin/sh -c npm install --omit=dev # buil…   27.6MB    buildkit.dockerfile.v0
+<missing>      3 seconds ago            COPY package.json ./ # buildkit                 12.3kB    buildkit.dockerfile.v0
+<missing>      9 minutes ago            WORKDIR /app                                    8.19kB    buildkit.dockerfile.v0
+<missing>      7 months ago             CMD ["node"]                                    0B        buildkit.dockerfile.v0
+<missing>      7 months ago             ENTRYPOINT ["docker-entrypoint.sh"]             0B        buildkit.dockerfile.v0
+<missing>      7 months ago             COPY docker-entrypoint.sh /usr/local/bin/ # …   20.5kB    buildkit.dockerfile.v0
+<missing>      7 months ago             RUN /bin/sh -c apk add --no-cache --virtual …   5.48MB    buildkit.dockerfile.v0
+<missing>      7 months ago             ENV YARN_VERSION=1.22.22                        0B        buildkit.dockerfile.v0
+<missing>      7 months ago             RUN /bin/sh -c addgroup -g 1000 node     && …   130MB     buildkit.dockerfile.v0
+<missing>      7 months ago             ENV NODE_VERSION=20.20.2                        0B        buildkit.dockerfile.v0
+<missing>      7 months ago             CMD ["/bin/sh"]                                 0B        buildkit.dockerfile.v0
+<missing>      7 months ago             ADD alpine-minirootfs-3.23.4-aarch64.tar.gz …   9.35MB    buildkit.dockerfile.v0
+
+$ docker run --rm -d --name app-single -p 5000:5000 app-multistage:single && docker run --rm -d --name app-multi -p 5001:5000 app-multistage:multi && sleep 2 && curl -s http://localhost:5000; echo; curl -s http://localhost:5001; echo; docker stop app-single app-multi
+64d09de6e80ca8bf4a115333fef7b3da599db8b5f0f49e7542643d285017d21f
+fa1d723546d6f6c6a5a45115ae32b7000788dc529665cb076f77bee927ca3cf6
+{"servico":"app-multistage","compilado":true,"imagemBase":"node:20","hostname":"64d09de6e80c","memoriaUsadaMB":39}
+{"servico":"app-multistage","compilado":true,"imagemBase":"node:20-alpine","hostname":"fa1d723546d6","memoriaUsadaMB":44}
+app-single
+app-multi
+
+$ docker run --rm app-multistage:multi sh -c "ls; ls node_modules 2>/dev/null | wc -l"
+dist
+node_modules
+package-lock.json
+package.json
+1
+
+$ docker run --rm app-multistage:single sh -c "ls src; ls node_modules/.bin"
+index.ts
+tsc
+tsserver
+
+### DESAFIO
+$ docker build --progress=plain --no-cache --target test -t app-multistage:test . 2>&1 | grep -E "\[test|SMOKE|compilado"
+#12 [test 1/1] RUN node dist/index.js &     sleep 1 &&     curl -sf http://localhost:5000 | tee /tmp/resposta.json &&     grep -q '"compilado":true' /tmp/resposta.json &&     echo "\nSMOKE TEST OK"
+#12 0.116 API (TypeScript compilado) na porta 5000
+#12 1.128 {"servico":"app-multistage","compilado":true,"imagemBase":"desconhecida","hostname":"buildkitsandbox","memoriaUsadaMB":39}
+#12 1.130 SMOKE TEST OK
+
+$ docker build -q -f Dockerfile -t app-multistage:multi . && docker image inspect -f "{{.RepoTags}} -> {{.Size}} bytes" app-multistage:multi app-multistage:test
+sha256:4b0820ae0c7de9f782d00510d69f95ce778d5b5a9101a230b8434078855990c7
+[app-multistage:multi] -> 52525057 bytes
+[app-multistage:test] -> 402556278 bytes
+
+$ docker image ls app-multistage
+WARNING: This output is designed for human readability. For machine-readable output, please use --format.
+IMAGE                   ID             DISK USAGE   CONTENT SIZE   EXTRA
+app-multistage:multi    4b0820ae0c7d        225MB         52.5MB        
+app-multistage:single   58df5103a0c5       1.64GB          403MB        
+app-multistage:test     a40cb71b995f       1.64GB          403MB        
+

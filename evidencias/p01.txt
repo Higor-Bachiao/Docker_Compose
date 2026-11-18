@@ -1,0 +1,68 @@
+$ docker run hello-world
+
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+
+To generate this message, Docker took the following steps:
+ 1. The Docker client contacted the Docker daemon.
+ 2. The Docker daemon pulled the "hello-world" image from the Docker Hub.
+    (arm64v8)
+ 3. The Docker daemon created a new container from that image which runs the
+    executable that produces the output you are currently reading.
+ 4. The Docker daemon streamed that output to the Docker client, which sent it
+    to your terminal.
+
+To try something more ambitious, you can run an Ubuntu container with:
+ $ docker run -it ubuntu bash
+
+Share images, automate workflows, and more with a free Docker ID:
+ https://hub.docker.com/
+
+For more examples and ideas, visit:
+ https://docs.docker.com/get-started/
+
+
+$ docker run --rm alpine echo "Ola, Unifeg - teste do Higor no macOS"
+Ola, Unifeg - teste do Higor no macOS
+
+$ printf "hostname\nexit\n" | script -q /dev/null docker run -it --name meu-alpine alpine sh | tail -n 3
+/ # ?hostname
+bd153d18e832
+/ # exit
+
+$ docker ps --filter name=meu-alpine
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+
+$ docker ps -a --filter name=meu-alpine
+CONTAINER ID   IMAGE     COMMAND   CREATED                  STATUS                              PORTS     NAMES
+bd153d18e832   alpine    "sh"      Less than a second ago   Exited (0) Less than a second ago             meu-alpine
+
+$ docker logs meu-alpine | tail -n 3
+/ # ?hostname
+bd153d18e832
+/ # exit
+
+$ docker rm meu-alpine
+meu-alpine
+
+$ docker run --rm --name efemero alpine echo "vou sumir"; docker ps -a --filter name=efemero
+vou sumir
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+
+### DESAFIO
+$ for n in 1 2 3; do docker run -d --name hb-sd-$n alpine sleep 300; done
+03032399f45be0da1eb5d3d4fe4043420879d3a141ed93b3a2d5b4e39a832a58
+b28ed730b8cd208fed73ebd91710fb944c385d39e398b81e5e47a67ecb1188f0
+9fc4f15880b424f8c3205c6428485e6f1ffb38cf51de02ee923bc04511063c72
+
+$ docker ps --filter "name=^hb-sd-" --format "table {{.Names}}\t{{.Status}}\t{{.Command}}"
+NAMES     STATUS                  COMMAND
+hb-sd-3   Up Less than a second   "sleep 300"
+hb-sd-2   Up Less than a second   "sleep 300"
+hb-sd-1   Up Less than a second   "sleep 300"
+
+$ docker rm -f hb-sd-1 hb-sd-2 hb-sd-3
+hb-sd-1
+hb-sd-2
+hb-sd-3
+

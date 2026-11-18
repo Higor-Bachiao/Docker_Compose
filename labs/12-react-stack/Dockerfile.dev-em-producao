@@ -1,0 +1,10 @@
+# DESAFIO P12 — anti-exemplo: "producao" rodando o servidor de DEV do Vite.
+# Existe so para comparar tamanho com o Dockerfile multi-stage + Nginx.
+# Leva node, todo o node_modules (inclusive devDependencies) e o codigo-fonte.
+FROM node:20-alpine
+WORKDIR /app
+COPY app-react/package.json ./
+RUN npm install
+COPY app-react/ ./
+EXPOSE 5173
+CMD ["npm", "run", "dev"]
